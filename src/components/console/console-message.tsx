@@ -12,6 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Bloub } from '@/components/bloub';
+import { DataWidget, FactLine, PageWidget, WidgetAction, WidgetCard } from '@/components/console/ai-widgets';
 import { TopFade } from '@/components/edge-fade';
 import { WhatsAppMark } from '@/components/whatsapp-mark';
 import { CollapsibleText } from '@/components/collapsible-text';
@@ -110,11 +111,24 @@ export function ConsoleMessage({
   if (onlyReceipt && receipt) return <WhatsAppReceipt phone={receipt} />;
 
   return (
-    <View style={[styles.bubble, mine ? [styles.mine, { backgroundColor: accent }] : scheme === 'light' ? styles.theirsLight : styles.theirs]}>
+    <View
+      style={[
+        styles.bubble,
+        mine ? [styles.mine, { backgroundColor: accent }] : scheme === 'light' ? styles.theirsLight : styles.theirs,
+        (card.kind || text(briefing.title)) && !mine ? styles.bubbleWithWidgets : null,
+      ]}>
       {image ? <Image source={{ uri: image }} style={styles.image} accessibilityIgnoresInvertColors /> : null}
       {receipt ? <WhatsAppReceipt phone={receipt} /> : spoken ? (
-        <CollapsibleText messageId={message.id} text={spoken} fade={mine ? accent : scheme === 'light' ? '#f2f2f0' : ink.surfaceRaised} labelColor={mine ? '#FFFFFF' : undefined}>
-          {mine ? <Text style={[styles.userText, { color: '#FFFFFF' }]}>{spoken}</Text> : <FormattedText text={spoken} color={scheme === 'light' ? '#000000' : undefined} />}
+        <CollapsibleText
+          messageId={message.id}
+          text={spoken}
+          fade={mine ? accent : scheme === 'light' ? '#f2f2f0' : ink.surfaceRaised}
+          labelColor={mine ? '#FFFFFF' : undefined}>
+          {mine ? (
+            <Text style={[styles.userText, { color: '#FFFFFF' }]}>{spoken}</Text>
+          ) : (
+            <FormattedText text={spoken} color={scheme === 'light' ? '#000000' : undefined} />
+          )}
         </CollapsibleText>
       ) : null}
       {files.map((file) => (
@@ -132,43 +146,32 @@ export function ConsoleMessage({
         <MailCard key={draft.id || draft.to} draft={draft} busy={busy} messageId={message.id} onMail={onMail} />
       ))}
       {message.pending ? (
-        <View style={styles.actions}>
-          <Text style={styles.pending}>{message.pending.description}</Text>
+        <WidgetCard kicker="Confirm" title={message.pending.description}>
           <View style={styles.actionRow}>
-            <Pressable disabled={busy} onPress={() => onDecision('reject')} style={styles.action}>
-              <Text style={styles.actionLabel}>Reject</Text>
-            </Pressable>
-            <Pressable disabled={busy} onPress={() => onDecision('approve')} style={[styles.action, styles.actionPrimary]}>
-              <Text style={[styles.actionLabel, styles.actionPrimaryLabel]}>
-                {message.pending.toolName === 'add_catalogue_products' ? 'Add to catalogue' : 'Approve'}
-              </Text>
-            </Pressable>
+            <WidgetAction label="Reject" disabled={busy} onPress={() => onDecision('reject')} />
+            <WidgetAction
+              label={message.pending.toolName === 'add_catalogue_products' ? 'Add to catalogue' : 'Approve'}
+              primary
+              disabled={busy}
+              onPress={() => onDecision('approve')}
+            />
           </View>
-        </View>
+        </WidgetCard>
       ) : null}
-      {card.kind ? <DataCard card={card} busy={busy} onFollowup={onFollowup} onAction={onAction} /> : null}
+      {card.kind ? <DataWidget card={card} busy={busy} onFollowup={onFollowup} onAction={onAction} /> : null}
       {text(briefing.title) && text(briefing.markdown) ? (
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>{text(briefing.title)}</Text>
-          {text(briefing.preview) ? <Text style={styles.fact}>{text(briefing.preview)}</Text> : null}
-          <FormattedText text={text(briefing.markdown)} />
-          <View style={styles.actionRow}>
-            {(Array.isArray(briefing.followups) ? briefing.followups : []).map((item) => {
-              const followup = record(item);
-              const label = text(followup.label);
-              if (!label) return null;
-              return (
-                <Pressable key={text(followup.id) || label} disabled={busy} onPress={() => onFollowup(label)} style={styles.action}>
-                  <Text style={styles.actionLabel}>{label}</Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        </View>
+        <PageWidget
+          title={text(briefing.title)}
+          preview={text(briefing.preview) || 'Page'}
+          markdown={text(briefing.markdown)}
+          followups={Array.isArray(briefing.followups) ? briefing.followups : []}
+          busy={busy}
+          onFollowup={onFollowup}
+        />
       ) : null}
       {setup ? <SetupCard card={setup} /> : null}
       {remembered.length > 0 ? (
-        <View>
+        <View style={styles.rememberedBlock}>
           <Text style={styles.rememberedLabel}>Remembered</Text>
           {remembered.map((line) => (
             <Text key={line} style={styles.remembered}>
@@ -308,223 +311,23 @@ function MailCard({
     );
   }
   return (
-    <View style={styles.card}>
-      <Text style={styles.cardKicker}>Email</Text>
+    <WidgetCard kicker="Email" title={subject || 'Draft email'}>
       <TextInput value={subject} onChangeText={setSubject} placeholder="Subject" placeholderTextColor={ink.textMuted} style={styles.field} />
-      <Text style={styles.factLabel}>From {draft.from}</Text>
+      <FactLine label="From" value={draft.from} />
       <TextInput value={to} onChangeText={setTo} placeholder="To" placeholderTextColor={ink.textMuted} style={styles.field} autoCapitalize="none" />
       <TextInput value={cc} onChangeText={setCc} placeholder="Cc" placeholderTextColor={ink.textMuted} style={styles.field} autoCapitalize="none" />
       <TextInput value={body} onChangeText={setBody} multiline style={[styles.field, styles.body]} />
       <View style={styles.actionRow}>
-        <Pressable disabled={busy} onPress={() => onMail({ id: draft.id, messageId, decision: 'discard' })} style={styles.action}>
-          <Text style={styles.actionLabel}>Discard</Text>
-        </Pressable>
-        <Pressable
+        <WidgetAction label="Discard" disabled={busy} onPress={() => onMail({ id: draft.id, messageId, decision: 'discard' })} />
+        <WidgetAction
+          label="Send"
+          primary
           disabled={busy}
           onPress={() => onMail({ id: draft.id, messageId, decision: 'send', to, cc, subject, body })}
-          style={[styles.action, styles.actionPrimary]}>
-          <Text style={[styles.actionLabel, styles.actionPrimaryLabel]}>Send</Text>
-        </Pressable>
+        />
       </View>
-    </View>
+    </WidgetCard>
   );
-}
-
-function DataCard({
-  card,
-  busy,
-  onFollowup,
-  onAction,
-}: {
-  card: Record<string, unknown>;
-  busy: boolean;
-  onFollowup: (text: string) => void;
-  onAction: (decision: ActionDecision) => void;
-}) {
-  const { styles } = useThemed(makeStyles);
-  const kind = text(card.kind);
-  if (kind === 'profile') {
-    const profile = record(card.profile);
-    const rows: [string, string][] = [
-      ['What you offer', profile.offer],
-      ['Customers', profile.audience],
-      ['Where', profile.location],
-      ['Currency', profile.currency],
-      ['Website', profile.website],
-      ['Tone', profile.tone],
-      ['Languages', profile.languages],
-    ].flatMap(([label, value]) => (text(value) ? [[String(label), text(value)]] : []));
-    return (
-      <View style={styles.card}>
-        <View style={styles.cardHead}>
-          <Text style={styles.cardTitle}>{text(card.businessName) || 'Business'}</Text>
-          <Text style={styles.cardKicker}>Business profile</Text>
-        </View>
-        {text(profile.summary) ? <Text style={styles.fact}>{text(profile.summary)}</Text> : null}
-        {rows.map(([label, value]) => (
-          <Text key={String(label)} style={styles.fact}>
-            <Text style={styles.factLabel}>{label}. </Text>
-            {text(value)}
-          </Text>
-        ))}
-      </View>
-    );
-  }
-  if (kind === 'menu' && Array.isArray(card.items)) {
-    return (
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Menu</Text>
-        {card.items.map((item) => {
-          const row = record(item);
-          return (
-            <Text key={text(row.id) || text(row.name)} style={styles.fact}>
-              {text(row.name)} · {text(row.unit)} {String(row.price ?? '')}
-            </Text>
-          );
-        })}
-      </View>
-    );
-  }
-  if (kind === 'invoice') {
-    return (
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Invoice {text(card.number) || ''}</Text>
-        <Text style={styles.fact}>{text(card.contactName)} · {text(card.status)} · {text(card.currency)} {String(card.total ?? '')}</Text>
-      </View>
-    );
-  }
-  if (kind === 'contact') {
-    return (
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>{text(card.name) || 'Contact'}</Text>
-        <Text style={styles.fact}>{[text(card.phone), text(card.email), text(card.location)].filter(Boolean).join(' · ')}</Text>
-      </View>
-    );
-  }
-  if (kind === 'deal') {
-    return (
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>{text(card.title) || 'Deal'}</Text>
-        <Text style={styles.fact}>{text(card.stage)} · {text(card.currency)} {String(card.value ?? '')} · {text(card.contactName)}</Text>
-      </View>
-    );
-  }
-  if (kind === 'delegation' && Array.isArray(card.items)) {
-    return (
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Team</Text>
-        {card.items.map((item) => {
-          const row = record(item);
-          return (
-            <Pressable key={text(row.agent)} onPress={() => onFollowup(text(row.task) || text(row.report))}>
-              <Text style={styles.fact}>
-                <Text style={styles.factLabel}>{text(row.agent)}. </Text>
-                {text(row.report) || text(row.task)}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
-    );
-  }
-  if (kind === 'send_action') {
-    const target = record(card.target);
-    const state = text(card.state);
-    const actionId = text(card.actionId);
-    const candidates = Array.isArray(card.candidates) ? card.candidates : [];
-    return (
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>WhatsApp · {state || 'ready'}</Text>
-        <Text style={styles.fact}>{text(target.displayName) || text(target.address)}</Text>
-        {text(card.body) ? <Text style={styles.fact}>{text(card.body)}</Text> : null}
-        {text(card.reason) ? <Text style={styles.fact}>{text(card.reason)}</Text> : null}
-        {state === 'picking'
-          ? candidates.map((item) => {
-              const candidate = record(item);
-              const address = text(candidate.address);
-              if (!address || !actionId) return null;
-              return (
-                <Pressable key={address} disabled={busy} onPress={() => onAction({ id: actionId, decision: 'pick', address })} style={styles.action}>
-                  <Text style={styles.actionLabel}>{text(candidate.name) || address}</Text>
-                </Pressable>
-              );
-            })
-          : null}
-        {state === 'proposed' && actionId ? (
-          <View style={styles.actionRow}>
-            <Pressable disabled={busy} onPress={() => onAction({ id: actionId, decision: 'reject' })} style={styles.action}>
-              <Text style={styles.actionLabel}>Reject</Text>
-            </Pressable>
-            <Pressable disabled={busy || !text(card.body)} onPress={() => onAction({ id: actionId, decision: 'approve' })} style={[styles.action, styles.actionPrimary]}>
-              <Text style={[styles.actionLabel, styles.actionPrimaryLabel]}>Approve</Text>
-            </Pressable>
-          </View>
-        ) : null}
-        {state === 'failed' && actionId ? (
-          <View style={styles.actionRow}>
-            <Pressable disabled={busy} onPress={() => onAction({ id: actionId, decision: 'retry' })} style={styles.action}>
-              <Text style={styles.actionLabel}>Retry</Text>
-            </Pressable>
-            <Pressable disabled={busy} onPress={() => onFollowup('Change recipient')} style={styles.action}>
-              <Text style={styles.actionLabel}>Change recipient</Text>
-            </Pressable>
-            <Pressable disabled={busy} onPress={() => onAction({ id: actionId, decision: 'reject' })} style={styles.action}>
-              <Text style={styles.actionLabel}>Cancel</Text>
-            </Pressable>
-          </View>
-        ) : null}
-        {(state === 'picking' || state === 'needs_input') && actionId ? (
-          <Pressable disabled={busy} onPress={() => onAction({ id: actionId, decision: 'reject' })} style={styles.action}>
-            <Text style={styles.actionLabel}>Cancel</Text>
-          </Pressable>
-        ) : null}
-      </View>
-    );
-  }
-  if (kind === 'capability_gap') {
-    return (
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>{text(card.missing)}</Text>
-        <Text style={styles.fact}>{text(card.proposal)}</Text>
-      </View>
-    );
-  }
-  if (kind === 'connectors') {
-    return (
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Connect apps</Text>
-        <Text style={styles.fact}>Apps for {text(card.agentTitle) || 'this agent'} connect from the console.</Text>
-      </View>
-    );
-  }
-  if (kind === 'memory_receipt') {
-    const counts = record(card.counts);
-    return (
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Memory</Text>
-        <Text style={styles.fact}>
-          {String(counts.facts ?? 0)} facts · {String(counts.chunks ?? 0)} notes
-        </Text>
-      </View>
-    );
-  }
-  if (kind === 'message_draft') {
-    return (
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Message to {text(card.to)}</Text>
-        <Text style={styles.fact}>{text(card.body)}</Text>
-      </View>
-    );
-  }
-  if (kind === 'crm_picker') {
-    return (
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Choose an agent</Text>
-        <Text style={styles.fact}>Ecommerce, sales, support, and bookings.</Text>
-      </View>
-    );
-  }
-  return null;
 }
 
 function readSetup(value: unknown) {
@@ -542,26 +345,19 @@ function readSetup(value: unknown) {
 }
 
 function SetupCard({ card }: { card: NonNullable<ReturnType<typeof readSetup>> }) {
-  const { styles } = useThemed(makeStyles);
   const done = card.checklist.filter((item) => item.done).length;
   const open = card.checklist.filter((item) => !item.done);
   const shown = open.length > 0 ? open : card.checklist;
   return (
-    <View style={styles.card}>
-      <View style={styles.cardHead}>
-        <Text style={styles.cardTitle}>{card.title} setup</Text>
-        <Text style={styles.cardKicker}>{card.status === 'live' ? 'Live' : card.status === 'ready' ? 'Ready' : 'Setting up'}</Text>
-      </View>
-      <Text style={styles.fact}>
-        {done} of {card.checklist.length} done
-      </Text>
+    <WidgetCard
+      kicker="Setup"
+      title={`${card.title} setup`}
+      state={card.status === 'live' ? 'Live' : card.status === 'ready' ? 'Ready' : 'Setting up'}>
+      <FactLine value={`${done} of ${card.checklist.length} done`} />
       {shown.map((item) => (
-        <Text key={item.label} style={styles.fact}>
-          {item.done ? '✓' : '○'} {item.label}
-          {item.detail ? ` — ${item.detail}` : ''}
-        </Text>
+        <FactLine key={item.label} value={`${item.done ? '✓' : '○'} ${item.label}${item.detail ? ` — ${item.detail}` : ''}`} />
       ))}
-    </View>
+    </WidgetCard>
   );
 }
 
