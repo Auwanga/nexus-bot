@@ -1,98 +1,116 @@
-import * as Device from 'expo-device';
-import { Platform, StyleSheet } from 'react-native';
+import { router } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import { useEffect } from 'react';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AnimatedIcon } from '@/components/animated-icon';
-import { HintRow } from '@/components/hint-row';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { WelcomeMarks } from '@/components/welcome-marks';
+import { Radius, Space, Type } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useSession } from '@/lib/auth';
 
-function getDevMenuHint() {
-  if (Platform.OS === 'web') {
-    return <ThemedText type="small">use browser devtools</ThemedText>;
-  }
-  if (Device.isDevice) {
+export default function WelcomeScreen() {
+  const colors = useTheme();
+  const scheme = useColorScheme();
+  const { session, ready, configured } = useSession();
+
+  useEffect(() => {
+    if (!ready) return;
+    if (configured && session) {
+      router.replace('/home');
+    }
+  }, [configured, ready, session]);
+
+  // Keep a blank dark frame while we restore a saved session so sign-in never flashes.
+  if (!ready || (configured && session)) {
     return (
-      <ThemedText type="small">
-        shake device or press <ThemedText type="code">m</ThemedText> in terminal
-      </ThemedText>
+      <View style={[styles.screen, styles.boot, { backgroundColor: '#000000' }]}>
+        <StatusBar style="light" />
+        <ActivityIndicator color="#FFFFFF" />
+      </View>
     );
   }
-  const shortcut = Platform.OS === 'android' ? 'cmd+m (or ctrl+m)' : 'cmd+d';
+
   return (
-    <ThemedText type="small">
-      press <ThemedText type="code">{shortcut}</ThemedText>
-    </ThemedText>
-  );
-}
+    <View style={[styles.screen, { backgroundColor: colors.bg }]}>
+      <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
+      <SafeAreaView style={styles.frame}>
+        <View style={styles.stage}>
+          <WelcomeMarks scale={1} />
+          <View style={styles.lockup}>
+            <Text style={[styles.title, { color: colors.text }]}>Nexus</Text>
+            <Text style={[styles.subtitle, { color: colors.textMuted }]}>
+              Your team of always-on agents{'\n'}that finish the work.
+            </Text>
+          </View>
+        </View>
 
-export default function HomeScreen() {
-  return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.heroSection}>
-          <AnimatedIcon />
-          <ThemedText type="title" style={styles.title}>
-            Welcome to&nbsp;Expo
-          </ThemedText>
-        </ThemedView>
-
-        <ThemedText type="code" style={styles.code}>
-          get started
-        </ThemedText>
-
-        <ThemedView type="backgroundElement" style={styles.stepContainer}>
-          <HintRow
-            title="Try editing"
-            hint={<ThemedText type="code">src/app/index.tsx</ThemedText>}
-          />
-          <HintRow title="Dev tools" hint={getDevMenuHint()} />
-          <HintRow
-            title="Fresh start"
-            hint={<ThemedText type="code">npm run reset-project</ThemedText>}
-          />
-        </ThemedView>
-
-        {Platform.OS === 'web' && <WebBadge />}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Sign in"
+          onPress={() => router.push('/sign-in')}
+          style={({ pressed }) => [
+            styles.button,
+            { backgroundColor: colors.button, opacity: pressed ? 0.86 : 1 },
+          ]}>
+          <Text style={[styles.buttonLabel, { color: colors.buttonText }]}>Sign in</Text>
+        </Pressable>
       </SafeAreaView>
-    </ThemedView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  screen: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  boot: {
+    justifyContent: 'center',
+  },
+  frame: {
+    flex: 1,
+    width: '100%',
+    maxWidth: 480,
+    paddingHorizontal: Space[6],
+    paddingBottom: Space[3],
+  },
+  stage: {
     flex: 1,
     justifyContent: 'center',
-    flexDirection: 'row',
   },
-  safeArea: {
-    flex: 1,
-    paddingHorizontal: Spacing.four,
+  lockup: {
     alignItems: 'center',
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
-    maxWidth: MaxContentWidth,
-  },
-  heroSection: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.four,
+    paddingHorizontal: Space[4],
+    gap: Space[3],
   },
   title: {
+    fontSize: 34,
+    lineHeight: 40,
+    fontWeight: '700',
+    letterSpacing: -0.4,
     textAlign: 'center',
   },
-  code: {
-    textTransform: 'uppercase',
+  subtitle: {
+    ...Type.body,
+    fontWeight: '400',
+    textAlign: 'center',
   },
-  stepContainer: {
-    gap: Spacing.three,
-    alignSelf: 'stretch',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
+  button: {
+    minHeight: 56,
+    borderRadius: Radius.chip,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Space[6],
+    shadowColor: '#111318',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 4,
+  },
+  buttonLabel: {
+    ...Type.body,
+    fontWeight: '600',
   },
 });

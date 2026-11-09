@@ -1,94 +1,66 @@
 import { Image } from 'expo-image';
+import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
-import Animated, { Keyframe, Easing } from 'react-native-reanimated';
+import Animated, {
+  Easing,
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withTiming,
+} from 'react-native-reanimated';
 
-import classes from './animated-icon.module.css';
-const DURATION = 300;
+import { Bloub, useBloubReady } from '@/components/bloub';
 
-export function AnimatedSplashOverlay() {
-  return null;
+const HOLD_MS = 700;
+const FADE_MS = 420;
+const BLOUB_SIZE = 112;
+
+type SplashProps = {
+  onFinished?: () => void;
+};
+
+export function AnimatedSplashOverlay({ onFinished }: SplashProps) {
+  const ready = useBloubReady('idle');
+  const [visible, setVisible] = useState(true);
+  const opacity = useSharedValue(1);
+
+  useEffect(() => {
+    if (!ready || !visible) return;
+
+    opacity.value = withDelay(
+      HOLD_MS,
+      withTiming(0, { duration: FADE_MS, easing: Easing.out(Easing.cubic) }, (finished) => {
+        if (finished) {
+          runOnJS(setVisible)(false);
+          if (onFinished) runOnJS(onFinished)();
+        }
+      }),
+    );
+  }, [onFinished, opacity, ready, visible]);
+
+  const fadeStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
+
+  if (!visible) return null;
+
+  return (
+    <Animated.View pointerEvents="none" style={[styles.splashOverlay, fadeStyle]}>
+      {ready ? (
+        <Bloub size={BLOUB_SIZE} color="#FFFFFF" eyeColor="#000000" mood="idle" />
+      ) : null}
+    </Animated.View>
+  );
 }
-
-const keyframe = new Keyframe({
-  0: {
-    transform: [{ scale: 0 }],
-  },
-  60: {
-    transform: [{ scale: 1.2 }],
-    easing: Easing.elastic(1.2),
-  },
-  100: {
-    transform: [{ scale: 1 }],
-    easing: Easing.elastic(1.2),
-  },
-});
-
-const logoKeyframe = new Keyframe({
-  0: {
-    opacity: 0,
-  },
-  60: {
-    transform: [{ scale: 1.2 }],
-    opacity: 0,
-    easing: Easing.elastic(1.2),
-  },
-  100: {
-    transform: [{ scale: 1 }],
-    opacity: 1,
-    easing: Easing.elastic(1.2),
-  },
-});
-
-const glowKeyframe = new Keyframe({
-  0: {
-    transform: [{ rotateZ: '-180deg' }, { scale: 0.8 }],
-    opacity: 0,
-  },
-  [DURATION / 1000]: {
-    transform: [{ rotateZ: '0deg' }, { scale: 1 }],
-    opacity: 1,
-    easing: Easing.elastic(0.7),
-  },
-  100: {
-    transform: [{ rotateZ: '7200deg' }],
-  },
-});
 
 export function AnimatedIcon() {
   return (
     <View style={styles.iconContainer}>
-      <Animated.View entering={glowKeyframe.duration(60 * 1000 * 4)} style={styles.glow}>
-        <Image style={styles.glow} source={require('@/assets/images/logo-glow.png')} />
-      </Animated.View>
-
-      <Animated.View style={styles.background} entering={keyframe.duration(DURATION)}>
-        <div className={classes.expoLogoBackground} />
-      </Animated.View>
-
-      <Animated.View style={styles.imageContainer} entering={logoKeyframe.duration(DURATION)}>
-        <Image style={styles.image} source={require('@/assets/images/expo-logo.png')} />
-      </Animated.View>
+      <Image style={styles.image} source={require('@/assets/images/icon.png')} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    alignItems: 'center',
-    width: '100%',
-    zIndex: 1000,
-    position: 'absolute',
-    top: 128 / 2 + 138,
-  },
-  imageContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  glow: {
-    width: 201,
-    height: 201,
-    position: 'absolute',
-  },
   iconContainer: {
     justifyContent: 'center',
     alignItems: 'center',
@@ -96,13 +68,15 @@ const styles = StyleSheet.create({
     height: 128,
   },
   image: {
-    position: 'absolute',
-    width: 76,
-    height: 71,
-  },
-  background: {
     width: 128,
     height: 128,
-    position: 'absolute',
+    borderRadius: 28,
+  },
+  splashOverlay: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: '#000000',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1000,
   },
 });
